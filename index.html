@@ -810,7 +810,8 @@
                 });
                 document.getElementById('webcam').srcObject = cameraStream;
             } catch (err) {
-                alert("Camera access denied or unavailable on this device.");
+                console.error("Camera Error Details:", err);
+                alert("Camera Error: " + err.name + " - " + err.message);
             }
         }
 
