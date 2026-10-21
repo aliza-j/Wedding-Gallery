@@ -249,7 +249,7 @@
 
                 <!-- FILE UPLOAD SECTION -->
                 <div id="fileUploadSection" class="space-y-3">
-                    <div id="dropZone" class="border-2 border-dashed border-wedding-rose hover:border-wedding-gold rounded-xl p-6 text-center cursor-pointer transition-colors bg-white/50">
+                    <div id="dropZone" onclick="document.getElementById('imageInput').click()" class="border-2 border-dashed border-wedding-rose hover:border-wedding-gold rounded-xl p-6 text-center cursor-pointer transition-colors bg-white/50">
                         <input type="file" id="imageInput" accept="image/*" class="hidden" onchange="handleFileSelect(event)">
                         <i class="fa-solid fa-cloud-arrow-up text-3xl text-wedding-rose mb-2"></i>
                         <p class="text-xs font-medium text-wedding-burgundy">Tap to choose a photo or drag & drop</p>
