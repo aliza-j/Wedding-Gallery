@@ -878,37 +878,46 @@
         }
 
         async function submitPhotoPost() {
-            const author = document.getElementById('guestName').value.trim();
-            const caption = document.getElementById('guestCaption').value.trim();
-
+            const authorInput = document.getElementById('guestName');
+            const author = authorInput ? authorInput.value.trim() : '';
+            const caption = document.getElementById('guestCaption') ? document.getElementById('guestCaption').value.trim() : '';
+        
+            console.log("Submitting post — Author:", author, "Has Image:", !!currentImageBase64);
+        
             if (!author) {
-                alert("Please enter your name!");
+                alert("Please enter your name before posting!");
+                if (authorInput) authorInput.focus();
                 return;
             }
+            
             if (!currentImageBase64) {
-                alert("Please upload or take a photo first!");
+                alert("Please select or capture a photo first!");
                 return;
             }
-
+        
             const newMemory = {
                 id: 'mem-' + Date.now(),
                 type: 'photo',
                 author: author,
                 caption: caption,
-                badge: selectedBadgeText,
-                filterClass: selectedFilterClass,
+                badge: selectedBadgeText || '',
+                filterClass: selectedFilterClass || 'filter-normal',
                 likes: 1,
                 comments: [],
                 timestamp: Date.now(),
                 imageData: currentImageBase64
             };
-
-            await saveMemory(newMemory);
-            closeModal('uploadModal');
-            resetUploadForm();
-            loadGallery();
+        
+            try {
+                await saveMemory(newMemory);
+                closeModal('uploadModal');
+                resetUploadForm();
+                loadGallery();
+            } catch (err) {
+                console.error("Failed to save memory to IndexedDB:", err);
+                alert("Error saving your post. Please try again.");
+            }
         }
-
         async function submitNotePost() {
             const author = document.getElementById('noteGuestName').value.trim();
             const message = document.getElementById('noteMessage').value.trim();
