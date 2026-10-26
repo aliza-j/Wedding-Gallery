@@ -578,24 +578,38 @@
             });
         }
 
-// FIXED & IMPROVED SAVE MEMORY FUNCTION
+// ROBUST SAVE MEMORY (Automatically re-opens DB if disconnected)
         function saveMemory(memoryObj) {
             return new Promise((resolve, reject) => {
+                // If db is closed or null, try to re-initialize it first
                 if (!db) {
-                    return reject(new Error("Database connection is not open. Please refresh the page."));
-                }
-                try {
-                    const tx = db.transaction(STORE_NAME, 'readwrite');
-                    const store = tx.objectStore(STORE_NAME);
-                    const request = store.put(memoryObj);
-
-                    request.onsuccess = () => resolve();
-                    request.onerror = (e) => reject(e.target.error);
-                    tx.onerror = (e) => reject(e.target.error);
-                } catch (err) {
-                    reject(err);
+                    const request = indexedDB.open(DB_NAME, DB_VERSION);
+                    request.onsuccess = (e) => {
+                        db = e.target.result;
+                        executeSave(memoryObj, resolve, reject);
+                    };
+                    request.onerror = (e) => {
+                        reject(new Error("Could not reconnect to database. Please refresh the page."));
+                    };
+                } else {
+                    executeSave(memoryObj, resolve, reject);
                 }
             });
+        }
+
+        // Helper to perform the actual write transaction
+        function executeSave(memoryObj, resolve, reject) {
+            try {
+                const tx = db.transaction(STORE_NAME, 'readwrite');
+                const store = tx.objectStore(STORE_NAME);
+                const request = store.put(memoryObj);
+
+                request.onsuccess = () => resolve();
+                request.onerror = (e) => reject(e.target.error);
+                tx.onerror = (e) => reject(e.target.error);
+            } catch (err) {
+                reject(err);
+            }
         }
 
         // IMAGE COMPRESSION HELPER (Prevents large phone photos from crashing IndexedDB)
