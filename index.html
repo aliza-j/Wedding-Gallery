@@ -451,6 +451,13 @@
 
     <!-- ================= JAVASCRIPT LOGIC ================= -->
     <script>
+        // Unique Client Token to identify posts created by this specific browser/device
+        let clientToken = localStorage.getItem('wedding_client_token');
+        if (!clientToken) {
+            clientToken = 'device-' + Math.random().toString(36).substring(2) + Date.now();
+            localStorage.setItem('wedding_client_token', clientToken);
+        }
+        
         // IndexedDB Configuration
         const DB_NAME = 'WeddingGuestbookDB';
         const DB_VERSION = 1;
@@ -694,8 +701,15 @@
             grid.innerHTML = memories.map(m => createPolaroidCard(m)).join('');
         }
 
-        function createPolaroidCard(m) {
+  function createPolaroidCard(m) {
             const formattedDate = new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            
+            // Check if current browser is the owner of this post
+            const isOwner = m.ownerToken === clientToken;
+            const deleteButtonHtml = isOwner ? `
+                <button onclick="event.stopPropagation(); handleDelete('${m.id}')" class="text-xs text-wedding-dark/40 hover:text-red-600 transition-colors" title="Delete your post">
+                    <i class="fa-solid fa-trash-can"></i>
+                </button>` : '';
 
             if (m.type === 'note') {
                 return `
@@ -710,9 +724,7 @@
                     <div class="pt-3 border-t border-wedding-rose/20 flex items-center justify-between">
                         <span class="font-serif font-bold text-xs text-wedding-burgundy truncate max-w-[130px]">— ${escapeHtml(m.author)}</span>
                         <div class="flex items-center gap-2">
-                            <button onclick="event.stopPropagation(); handleDelete('${m.id}')" class="text-xs text-wedding-dark/40 hover:text-red-600 transition-colors" title="Delete post">
-                                <i class="fa-solid fa-trash-can"></i>
-                            </button>
+                            ${deleteButtonHtml}
                             <button onclick="event.stopPropagation(); quickLike('${m.id}')" class="text-xs text-wedding-burgundy hover:scale-110 transition-transform flex items-center gap-1">
                                 <i class="fa-solid fa-heart"></i>
                                 <span>${m.likes}</span>
@@ -736,9 +748,7 @@
                     <div class="flex justify-between items-center mt-2 pt-2 border-t border-wedding-blush text-[10px] text-wedding-dark/50">
                         <span>${formattedDate}</span>
                         <div class="flex items-center gap-2">
-                            <button onclick="event.stopPropagation(); handleDelete('${m.id}')" class="text-xs text-wedding-dark/40 hover:text-red-600 transition-colors" title="Delete post">
-                                <i class="fa-solid fa-trash-can"></i>
-                            </button>
+                            ${deleteButtonHtml}
                             <button onclick="event.stopPropagation(); quickLike('${m.id}')" class="text-xs text-wedding-burgundy font-semibold hover:scale-110 transition-transform flex items-center gap-1">
                                 <i class="fa-solid fa-heart"></i>
                                 <span>${m.likes}</span>
@@ -750,7 +760,7 @@
         }
 
         /* ================= LIGHTBOX & INTERACTIONS ================= */
-        async function openLightbox(id) {
+async function openLightbox(id) {
             const memories = await getAllMemories();
             const memory = memories.find(m => m.id === id);
             if (!memory) return;
@@ -778,6 +788,16 @@
             document.getElementById('lightboxTime').innerText = new Date(memory.timestamp).toLocaleString();
             document.getElementById('lightboxCaption').innerText = memory.caption ? `"${memory.caption}"` : '';
             document.getElementById('lightboxLikeCount').innerText = memory.likes;
+
+            // Show or hide delete button in lightbox based on ownership
+            const lightboxDeleteBtn = document.getElementById('lightboxDeleteBtn');
+            if (lightboxDeleteBtn) {
+                if (memory.ownerToken === clientToken) {
+                    lightboxDeleteBtn.classList.remove('hidden');
+                } else {
+                    lightboxDeleteBtn.classList.add('hidden');
+                }
+            }
 
             renderComments(memory.comments || []);
             openModal('lightboxModal');
@@ -942,8 +962,7 @@
             });
         }
 
-// UPDATED SUBMIT POST WITH DETAILED ERROR REPORTING
-        async function submitPhotoPost() {
+async function submitPhotoPost() {
             const author = document.getElementById('guestName').value.trim();
             const caption = document.getElementById('guestCaption').value.trim();
 
@@ -957,8 +976,6 @@
             }
 
             try {
-                // Show a quick visual notice or log that it's processing
-                console.log("Compressing image...");
                 const compressedImage = await compressImage(currentImageBase64);
 
                 const newMemory = {
@@ -971,24 +988,21 @@
                     likes: 1,
                     comments: [],
                     timestamp: Date.now(),
-                    imageData: compressedImage
+                    imageData: compressedImage,
+                    ownerToken: clientToken // <--- Marks this post as owned by this device
                 };
 
-                console.log("Saving to database...");
                 await saveMemory(newMemory);
-                
                 closeModal('uploadModal');
                 resetUploadForm();
                 loadGallery();
-                alert("Memory posted successfully! ✨");
             } catch (err) {
-                console.error("Detailed Post Error:", err);
-                // This will show you the EXACT error code (e.g. QuotaExceededError) on your phone screen
-                alert("Error saving: " + (err.name || "Unknown") + " - " + (err.message || err));
+                console.error("Database save error:", err);
+                alert("Failed to save post. Please try again.");
             }
         }
         
-        async function submitNotePost() {
+     async function submitNotePost() {
             const author = document.getElementById('noteGuestName').value.trim();
             const message = document.getElementById('noteMessage').value.trim();
 
@@ -1007,7 +1021,8 @@
                 likes: 1,
                 comments: [],
                 timestamp: Date.now(),
-                imageData: null
+                imageData: null,
+                ownerToken: clientToken // <--- Marks this note as owned by this device
             };
 
             await saveMemory(newMemory);
